@@ -1,5 +1,6 @@
-from autogen_core.tools import FunctionTool
 import logging
+
+from autogen_core.tools import FunctionTool
 
 # Set up logging for better error tracking
 logger = logging.getLogger(__name__)
@@ -8,12 +9,12 @@ logger = logging.getLogger(__name__)
 def calculator(a: float, b: float, operator: str) -> str:
     """
     Improved calculator with better error handling and Korean error messages.
-    
+
     Args:
         a: First number
-        b: Second number  
+        b: Second number
         operator: Operator (+, -, *, /)
-    
+
     Returns:
         Result as string with Korean error messages if needed
     """
@@ -25,7 +26,7 @@ def calculator(a: float, b: float, operator: str) -> str:
             return "오류: 두 번째 숫자가 유효하지 않습니다"
         if not isinstance(operator, str):
             return "오류: 연산자가 유효하지 않습니다"
-            
+
         # Perform calculation with proper error handling
         if operator == "+":
             result = a + b
@@ -39,12 +40,12 @@ def calculator(a: float, b: float, operator: str) -> str:
             result = a / b
         else:
             return f"오류: 잘못된 연산자입니다. +, -, *, / 중 하나를 사용하세요. 입력값: '{operator}'"
-            
+
         # Format result appropriately
         if isinstance(result, float) and result.is_integer():
             return str(int(result))
         return str(round(result, 10))  # Limit decimal places for precision
-        
+
     except TypeError as e:
         logger.error(f"Calculator TypeError: {e}")
         return f"오류: 타입 오류 - {str(e)}"

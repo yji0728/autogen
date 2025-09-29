@@ -33,7 +33,7 @@ from . import tools as tools
 def create_safe_agent_with_tools(agent_class, name, system_message, model_client, tools_list=None, **kwargs):
     """
     Safely create an agent with tools, with proper error handling.
-    
+
     Args:
         agent_class: The agent class to instantiate
         name: Agent name
@@ -41,7 +41,7 @@ def create_safe_agent_with_tools(agent_class, name, system_message, model_client
         model_client: Model client
         tools_list: List of tools to add (optional)
         **kwargs: Additional keyword arguments
-        
+
     Returns:
         Created agent or raises exception with helpful error message
     """
@@ -50,22 +50,22 @@ def create_safe_agent_with_tools(agent_class, name, system_message, model_client
         validated_tools = []
         if tools_list:
             for tool in tools_list:
-                if hasattr(tool, 'name') and hasattr(tool, 'func'):
+                if hasattr(tool, "name") and hasattr(tool, "func"):
                     validated_tools.append(tool)
                 else:
                     raise ValueError(f"도구가 유효하지 않습니다: {tool}")
-        
+
         # Create agent with validated tools
         agent = agent_class(
             name=name,
             system_message=system_message,
             model_client=model_client,
             tools=validated_tools if validated_tools else None,
-            **kwargs
+            **kwargs,
         )
-        
+
         return agent
-        
+
     except Exception as e:
         error_msg = f"에이전트 '{name}' 생성 중 오류 발생: {str(e)}"
         raise RuntimeError(error_msg) from e
@@ -266,7 +266,8 @@ def create_default_gallery() -> GalleryConfig:
         )
     except Exception as e:
         # Fallback to basic agent without tools if tool assignment fails
-        print(f"도구 할당 실패, 기본 에이전트 생성: {e}")
+        import logging
+        logging.warning(f"도구 할당 실패, 기본 에이전트 생성: {e}")
         calc_assistant = AssistantAgent(
             name="assistant_agent",
             system_message="당신은 도움이 되는 한국어 어시스턴트입니다. 주어진 작업을 신중하게 해결하세요. 작업이 완료되면 '종료'라고 말하세요.",
@@ -283,9 +284,21 @@ def create_default_gallery() -> GalleryConfig:
     calc_max_term = MaxMessageTermination(max_messages=10)
     calc_or_term = calc_text_term | calc_text_term_eng | calc_max_term
 
-    builder.add_termination(calc_text_term.dump_component(), label="텍스트 종료 조건", description="메시지에 '종료'가 포함되면 대화를 종료합니다.")
-    builder.add_termination(calc_text_term_eng.dump_component(), label="영어 종료 조건", description="메시지에 'TERMINATE'가 포함되면 대화를 종료합니다.")
-    builder.add_termination(calc_max_term.dump_component(), label="최대 메시지 종료 조건", description="최대 메시지 수에 도달하면 대화를 종료합니다.")
+    builder.add_termination(
+        calc_text_term.dump_component(),
+        label="텍스트 종료 조건",
+        description="메시지에 '종료'가 포함되면 대화를 종료합니다.",
+    )
+    builder.add_termination(
+        calc_text_term_eng.dump_component(),
+        label="영어 종료 조건",
+        description="메시지에 'TERMINATE'가 포함되면 대화를 종료합니다.",
+    )
+    builder.add_termination(
+        calc_max_term.dump_component(),
+        label="최대 메시지 종료 조건",
+        description="최대 메시지 수에 도달하면 대화를 종료합니다.",
+    )
     builder.add_termination(
         calc_or_term.dump_component(),
         label="OR 종료 조건",
@@ -574,19 +587,19 @@ Read the above conversation. Then select the next role from {participants} to pl
         system_message="당신은 한국어 토론의 조정자입니다. 여러 참가자들 간의 건설적인 토론을 이끌어가며, 각자의 의견을 듣고 정리하여 결론에 도달하도록 도와주세요. 토론이 완료되면 '토론 종료'라고 말하세요.",
         model_client=base_model,
     )
-    
+
     discussion_advocate = AssistantAgent(
         name="찬성론자",
         system_message="당신은 한국어로 토론하는 찬성론자입니다. 주어진 주제에 대해 긍정적인 관점과 장점을 제시하며, 근거를 들어 찬성 입장을 논리적으로 설명하세요.",
         model_client=base_model,
     )
-    
+
     discussion_critic = AssistantAgent(
-        name="반대론자", 
+        name="반대론자",
         system_message="당신은 한국어로 토론하는 반대론자입니다. 주제에 대해 비판적인 관점과 문제점을 제시하며, 근거를 들어 반대 입장을 논리적으로 설명하세요.",
         model_client=base_model,
     )
-    
+
     discussion_analyst = AssistantAgent(
         name="분석가",
         system_message="당신은 한국어로 토론하는 중립적 분석가입니다. 찬성과 반대 양측의 의견을 객관적으로 분석하고, 균형잡힌 시각에서 추가적인 관점이나 고려사항을 제시하세요.",
@@ -606,7 +619,7 @@ Read the above conversation. Then select the next role from {participants} to pl
 
 주어진 주제에 대해:
 - 토론조정자: 토론을 이끌고 의견을 정리합니다
-- 찬성론자: 긍정적 관점과 장점을 제시합니다  
+- 찬성론자: 긍정적 관점과 장점을 제시합니다
 - 반대론자: 비판적 관점과 문제점을 제시합니다
 - 분석가: 양측 의견을 객관적으로 분석합니다
 
@@ -618,7 +631,7 @@ Read the above conversation. Then select the next role from {participants} to pl
         model_client=base_model,
         termination_condition=korean_discussion_term,
     )
-    
+
     builder.add_team(
         korean_discussion_team.dump_component(),
         label="한국어 토론 팀",

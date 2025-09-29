@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { AuthProvider, useAuth } from "../auth/context";
 import { getLocalStorage, setLocalStorage } from "../components/utils/utils";
 import { User } from "../auth/api";
+import { I18nProvider } from "./i18n";
 
 export interface AppContextType {
   darkMode: string;
@@ -32,18 +33,20 @@ const AppProvider = ({ children }: any) => {
   const { user, logout } = useAuth();
 
   return (
-    <appContext.Provider
-      value={{
-        user,
-        setUser: () => {},
-        logout,
-        cookie_name: "coral_app_cookie_",
-        darkMode,
-        setDarkMode: updateDarkMode,
-      }}
-    >
-      {children}
-    </appContext.Provider>
+    <I18nProvider>
+      <appContext.Provider
+        value={{
+          user,
+          setUser: () => {},
+          logout,
+          cookie_name: "coral_app_cookie_",
+          darkMode,
+          setDarkMode: updateDarkMode,
+        }}
+      >
+        {children}
+      </appContext.Provider>
+    </I18nProvider>
   );
 };
 

@@ -30,6 +30,47 @@ from autogenstudio.datamodel import GalleryComponents, GalleryConfig, GalleryMet
 from . import tools as tools
 
 
+def create_safe_agent_with_tools(agent_class, name, system_message, model_client, tools_list=None, **kwargs):
+    """
+    Safely create an agent with tools, with proper error handling.
+    
+    Args:
+        agent_class: The agent class to instantiate
+        name: Agent name
+        system_message: System message
+        model_client: Model client
+        tools_list: List of tools to add (optional)
+        **kwargs: Additional keyword arguments
+        
+    Returns:
+        Created agent or raises exception with helpful error message
+    """
+    try:
+        # Validate tools before agent creation
+        validated_tools = []
+        if tools_list:
+            for tool in tools_list:
+                if hasattr(tool, 'name') and hasattr(tool, 'func'):
+                    validated_tools.append(tool)
+                else:
+                    raise ValueError(f"도구가 유효하지 않습니다: {tool}")
+        
+        # Create agent with validated tools
+        agent = agent_class(
+            name=name,
+            system_message=system_message,
+            model_client=model_client,
+            tools=validated_tools if validated_tools else None,
+            **kwargs
+        )
+        
+        return agent
+        
+    except Exception as e:
+        error_msg = f"에이전트 '{name}' 생성 중 오류 발생: {str(e)}"
+        raise RuntimeError(error_msg) from e
+
+
 class GalleryBuilder:
     """Enhanced builder class for creating AutoGen component galleries with custom labels."""
 
@@ -210,33 +251,45 @@ def create_default_gallery() -> GalleryConfig:
 
     builder.add_tool(
         tools.calculator_tool.dump_component(),
-        label="Calculator Tool",
-        description="A tool that performs basic arithmetic operations (addition, subtraction, multiplication, division).",
+        label="계산기 도구",
+        description="기본 산술 연산을 수행하는 도구입니다 (덧셈, 뺄셈, 곱셈, 나눗셈). 향상된 오류 처리 기능이 포함되어 있습니다.",
     )
 
-    # Create calculator assistant agent
-    calc_assistant = AssistantAgent(
-        name="assistant_agent",
-        system_message="You are a helpful assistant. Solve tasks carefully. When done, say TERMINATE.",
-        model_client=base_model,
-        tools=[tools.calculator_tool],
-    )
+    # Create calculator assistant agent with Korean system message using safer creation
+    try:
+        calc_assistant = create_safe_agent_with_tools(
+            AssistantAgent,
+            name="assistant_agent",
+            system_message="당신은 도움이 되는 한국어 어시스턴트입니다. 주어진 작업을 신중하게 해결하세요. 작업이 완료되면 '종료'라고 말하세요.",
+            model_client=base_model,
+            tools_list=[tools.calculator_tool],
+        )
+    except Exception as e:
+        # Fallback to basic agent without tools if tool assignment fails
+        print(f"도구 할당 실패, 기본 에이전트 생성: {e}")
+        calc_assistant = AssistantAgent(
+            name="assistant_agent",
+            system_message="당신은 도움이 되는 한국어 어시스턴트입니다. 주어진 작업을 신중하게 해결하세요. 작업이 완료되면 '종료'라고 말하세요.",
+            model_client=base_model,
+        )
 
     builder.add_agent(
-        calc_assistant.dump_component(), description="An agent that provides assistance with ability to use tools."
+        calc_assistant.dump_component(), description="도구 사용 능력을 갖춘 한국어 어시스턴트 에이전트입니다."
     )
 
-    # Create termination conditions
-    calc_text_term = TextMentionTermination(text="TERMINATE")
+    # Create termination conditions with Korean support
+    calc_text_term = TextMentionTermination(text="종료")
+    calc_text_term_eng = TextMentionTermination(text="TERMINATE")  # Keep English for compatibility
     calc_max_term = MaxMessageTermination(max_messages=10)
-    calc_or_term = calc_text_term | calc_max_term
+    calc_or_term = calc_text_term | calc_text_term_eng | calc_max_term
 
-    builder.add_termination(calc_text_term.dump_component())
-    builder.add_termination(calc_max_term.dump_component())
+    builder.add_termination(calc_text_term.dump_component(), label="텍스트 종료 조건", description="메시지에 '종료'가 포함되면 대화를 종료합니다.")
+    builder.add_termination(calc_text_term_eng.dump_component(), label="영어 종료 조건", description="메시지에 'TERMINATE'가 포함되면 대화를 종료합니다.")
+    builder.add_termination(calc_max_term.dump_component(), label="최대 메시지 종료 조건", description="최대 메시지 수에 도달하면 대화를 종료합니다.")
     builder.add_termination(
         calc_or_term.dump_component(),
-        label="OR Termination",
-        description="Termination condition that ends the conversation when either a message contains 'TERMINATE' or the maximum number of messages is reached.",
+        label="OR 종료 조건",
+        description="메시지에 '종료' 또는 'TERMINATE'가 포함되거나 최대 메시지 수에 도달하면 대화를 종료하는 조건입니다.",
     )
 
     # Add examples of new termination conditions
@@ -301,14 +354,14 @@ def create_default_gallery() -> GalleryConfig:
     calc_team = RoundRobinGroupChat(participants=[calc_assistant], termination_condition=calc_or_term)
     builder.add_team(
         calc_team.dump_component(),
-        label="RoundRobin Team",
-        description="A single AssistantAgent (with a calculator tool) in a RoundRobinGroupChat team. ",
+        label="라운드로빈 팀",
+        description="계산기 도구를 사용하는 한국어 어시스턴트 에이전트가 포함된 라운드로빈 그룹챗 팀입니다.",
     )
 
     critic_agent = AssistantAgent(
         name="critic_agent",
-        system_message="You are a helpful assistant. Critique the assistant's output and suggest improvements.",
-        description="an agent that critiques and improves the assistant's output",
+        system_message="당신은 도움이 되는 한국어 비평가입니다. 어시스턴트의 출력을 비판하고 개선사항을 제안하세요.",
+        description="어시스턴트의 출력을 비판하고 개선하는 에이전트",
         model_client=base_model,
     )
     selector_default_team = SelectorGroupChat(
@@ -316,23 +369,23 @@ def create_default_gallery() -> GalleryConfig:
     )
     builder.add_team(
         selector_default_team.dump_component(),
-        label="Selector Team",
-        description="A team with 2 agents - an AssistantAgent (with a calculator tool) and a CriticAgent in a SelectorGroupChat team.",
+        label="선택자 팀",
+        description="계산기 도구를 사용하는 어시스턴트 에이전트와 비평가 에이전트로 구성된 한국어 선택자 그룹챗 팀입니다.",
     )
 
     # Create Swarm team - agents with handoff capabilities
-    # Alice agent with handoff to Bob
+    # Alice agent with handoff to Bob - Korean version
     alice_agent = AssistantAgent(
         name="Alice",
-        system_message="You are Alice, a helpful assistant. You specialize in general questions. If someone asks about technical topics or needs detailed analysis, hand off to Bob by saying 'Let me hand this over to Bob for a detailed analysis.'",
+        system_message="당신은 앨리스입니다. 일반적인 질문을 전문으로 하는 도우미입니다. 누군가 기술적인 주제에 대해 묻거나 자세한 분석이 필요하면 '자세한 분석을 위해 밥에게 넘겨드리겠습니다'라고 말하며 밥에게 넘겨주세요.",
         model_client=base_model,
         handoffs=["Bob"],
     )
 
-    # Bob agent with handoff back to Alice
+    # Bob agent with handoff back to Alice - Korean version
     bob_agent = AssistantAgent(
         name="Bob",
-        system_message="You are Bob, a technical specialist. You handle detailed technical analysis. If the conversation becomes general or the user needs basic assistance, hand off to Alice by saying 'Let me hand this back to Alice for general assistance.'",
+        system_message="당신은 밥입니다. 기술 전문가로서 상세한 기술 분석을 담당합니다. 대화가 일반적이 되거나 사용자가 기본적인 도움이 필요하면 '일반적인 도움을 위해 앨리스에게 다시 넘겨드리겠습니다'라고 말하며 앨리스에게 넘겨주세요.",
         model_client=base_model,
         handoffs=["Alice"],
     )
@@ -341,8 +394,8 @@ def create_default_gallery() -> GalleryConfig:
     swarm_team = Swarm(participants=[alice_agent, bob_agent], termination_condition=calc_or_term)
     builder.add_team(
         swarm_team.dump_component(),
-        label="Swarm Team",
-        description="A team with 2 agents (Alice and Bob) that use handoff messages to transfer conversation control between agents based on expertise.",
+        label="스웜 팀",
+        description="전문 분야에 따라 핸드오프 메시지를 사용하여 대화 제어권을 전달하는 한국어 에이전트 2명(앨리스와 밥)으로 구성된 팀입니다.",
     )
 
     # Create web surfer agent
@@ -513,6 +566,63 @@ Read the above conversation. Then select the next role from {participants} to pl
         deep_research_team.dump_component(),
         label="Deep Research Team",
         description="A team with 3 agents - a Research Assistant that performs web searches and analyzes information, a Verifier that ensures research quality and completeness, and a Summary Agent that provides a detailed markdown summary of the research as a report to the user.",
+    )
+
+    # Create Korean Discussion Team - multiple agents discussing in Korean
+    discussion_moderator = AssistantAgent(
+        name="토론조정자",
+        system_message="당신은 한국어 토론의 조정자입니다. 여러 참가자들 간의 건설적인 토론을 이끌어가며, 각자의 의견을 듣고 정리하여 결론에 도달하도록 도와주세요. 토론이 완료되면 '토론 종료'라고 말하세요.",
+        model_client=base_model,
+    )
+    
+    discussion_advocate = AssistantAgent(
+        name="찬성론자",
+        system_message="당신은 한국어로 토론하는 찬성론자입니다. 주어진 주제에 대해 긍정적인 관점과 장점을 제시하며, 근거를 들어 찬성 입장을 논리적으로 설명하세요.",
+        model_client=base_model,
+    )
+    
+    discussion_critic = AssistantAgent(
+        name="반대론자", 
+        system_message="당신은 한국어로 토론하는 반대론자입니다. 주제에 대해 비판적인 관점과 문제점을 제시하며, 근거를 들어 반대 입장을 논리적으로 설명하세요.",
+        model_client=base_model,
+    )
+    
+    discussion_analyst = AssistantAgent(
+        name="분석가",
+        system_message="당신은 한국어로 토론하는 중립적 분석가입니다. 찬성과 반대 양측의 의견을 객관적으로 분석하고, 균형잡힌 시각에서 추가적인 관점이나 고려사항을 제시하세요.",
+        model_client=base_model,
+    )
+
+    # Korean discussion termination - responds to Korean terminate phrase
+    korean_text_term = TextMentionTermination(text="토론 종료")
+    korean_max_term = MaxMessageTermination(max_messages=25)
+    korean_discussion_term = korean_text_term | korean_max_term
+
+    # Create Korean discussion team
+    korean_discussion_team = SelectorGroupChat(
+        participants=[discussion_moderator, discussion_advocate, discussion_critic, discussion_analyst],
+        selector_prompt="""당신은 한국어 토론 팀의 코디네이터입니다. 다음 역할들이 있습니다:
+{roles}
+
+주어진 주제에 대해:
+- 토론조정자: 토론을 이끌고 의견을 정리합니다
+- 찬성론자: 긍정적 관점과 장점을 제시합니다  
+- 반대론자: 비판적 관점과 문제점을 제시합니다
+- 분석가: 양측 의견을 객관적으로 분석합니다
+
+현재 상황을 고려하여 {participants} 중에서 다음에 발언할 가장 적절한 역할을 선택하세요. 역할 이름만 반환하세요.
+
+{history}
+
+위 대화를 읽고 {participants} 중에서 다음에 발언할 역할을 선택하세요. 역할 이름만 반환하세요.""",
+        model_client=base_model,
+        termination_condition=korean_discussion_term,
+    )
+    
+    builder.add_team(
+        korean_discussion_team.dump_component(),
+        label="한국어 토론 팀",
+        description="4명의 에이전트가 한국어로 토론하는 팀 - 조정자, 찬성론자, 반대론자, 분석가가 주제에 대해 건설적인 토론을 진행합니다.",
     )
 
     # Add workbenches to the gallery

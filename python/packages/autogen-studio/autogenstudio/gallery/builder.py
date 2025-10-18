@@ -20,9 +20,9 @@ from autogen_core.tools import StaticWorkbench
 from autogen_ext.agents.web_surfer import MultimodalWebSurfer
 from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
 from autogen_ext.models.anthropic import AnthropicChatCompletionClient
+from autogen_ext.models.ollama import OllamaChatCompletionClient
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_ext.models.openai._openai_client import AzureOpenAIChatCompletionClient
-from autogen_ext.models.ollama import OllamaChatCompletionClient
 from autogen_ext.tools.code_execution import PythonCodeExecutionTool
 from autogen_ext.tools.mcp import McpWorkbench, StdioServerParams, StreamableHttpServerParams
 
@@ -215,16 +215,20 @@ def create_default_gallery() -> GalleryConfig:
 
     # Create Ollama model client as the default (no API key required)
     base_model = OllamaChatCompletionClient(model="qwen3:0.6b", host="http://localhost:11434")
-    builder.add_model(base_model.dump_component(), label="Ollama Qwen3 (기본)", description="Ollama Qwen3 0.6B 모델 - 도구 호출 지원")
-    
+    builder.add_model(
+        base_model.dump_component(), label="Ollama Qwen3 (기본)", description="Ollama Qwen3 0.6B 모델 - 도구 호출 지원"
+    )
+
     # Create additional Ollama model options
     llama_model = OllamaChatCompletionClient(model="llama3.2:1b", host="http://localhost:11434")
-    builder.add_model(llama_model.dump_component(), label="Ollama Llama3.2", description="Ollama Llama3.2 1B 모델 - 도구 호출 지원")
-    
+    builder.add_model(
+        llama_model.dump_component(), label="Ollama Llama3.2", description="Ollama Llama3.2 1B 모델 - 도구 호출 지원"
+    )
+
     # Keep OpenAI as an alternative option
     openai_model = OpenAIChatCompletionClient(model="gpt-4o-mini")
     builder.add_model(openai_model.dump_component(), label="OpenAI GPT-4o Mini", description="OpenAI GPT-4o-mini")
-    
+
     # Create Mistral vllm model
     mistral_vllm_model = OpenAIChatCompletionClient(
         model="TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
@@ -278,6 +282,7 @@ def create_default_gallery() -> GalleryConfig:
     except Exception as e:
         # Fallback to basic agent without tools if tool assignment fails
         import logging
+
         logging.warning(f"도구 할당 실패, 기본 에이전트 생성: {e}")
         calc_assistant = AssistantAgent(
             name="assistant_agent",

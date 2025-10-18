@@ -6,8 +6,8 @@ from autogen_agentchat.base import TaskResult
 from autogen_agentchat.messages import ChatMessage, TextMessage
 from autogen_core import ComponentModel
 from autogen_core.models import UserMessage
-from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_ext.models.ollama import OllamaChatCompletionClient
+from autogen_ext.models.openai import OpenAIChatCompletionClient
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 

@@ -7,6 +7,7 @@ from autogen_agentchat.messages import ChatMessage, TextMessage
 from autogen_core import ComponentModel
 from autogen_core.models import UserMessage
 from autogen_ext.models.openai import OpenAIChatCompletionClient
+from autogen_ext.models.ollama import OllamaChatCompletionClient
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
@@ -104,8 +105,8 @@ class UISettings(BaseModel):
 
 class SettingsConfig(BaseModel):
     environment: List[EnvironmentVariable] = []
-    default_model_client: Optional[ComponentModel] = OpenAIChatCompletionClient(
-        model="gpt-4o-mini", api_key="your-api-key"
+    default_model_client: Optional[ComponentModel] = OllamaChatCompletionClient(
+        model="qwen3:0.6b", host="http://localhost:11434"
     ).dump_component()
     ui: UISettings = UISettings()
 

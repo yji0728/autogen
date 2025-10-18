@@ -21,6 +21,7 @@ import { appContext } from "../hooks/provider";
 import { Link } from "gatsby";
 import React from "react";
 import { sanitizeUrl } from "./utils/security-utils";
+import { useI18n } from "../hooks/i18n";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -28,15 +29,16 @@ function classNames(...classes: string[]) {
 
 const Header = ({ meta, link }: any) => {
   const { user, logout } = React.useContext(appContext);
+  const { t } = useI18n(); // Use Korean i18n
   const userName = user ? user.name : "Unknown";
   const userAvatarUrl = user ? sanitizeUrl(user.avatar_url) : "";
   const user_id = user ? user.id : "unknown";
 
   const links: any[] = [
-    { name: "Build", href: "/build" },
-    { name: "Playground", href: "/" },
-    // { name: "Gallery", href: "/gallery" },
-    // { name: "Data Explorer", href: "/explorer" },
+    { name: t("Build"), href: "/build" },
+    { name: t("Playground"), href: "/" },
+    // { name: t("Gallery"), href: "/gallery" },
+    // { name: t("Data Explorer"), href: "/explorer" },
   ];
 
   const DarkModeToggle = () => {

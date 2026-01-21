@@ -113,6 +113,8 @@ autogenstudio ui --port 8081
 
 This command will start the application on the specified port. Open your web browser and go to <http://localhost:8081/> to use AutoGen Studio.
 
+> **Note**: AutoGen Studio now uses **Ollama as the default model provider**. Make sure you have Ollama installed and running before starting AutoGen Studio. See [OLLAMA_GUIDE.md](OLLAMA_GUIDE.md) for setup instructions.
+
 AutoGen Studio also takes several parameters to customize the application:
 
 - `--host <host>` argument to specify the host address. By default, it is set to `localhost`.

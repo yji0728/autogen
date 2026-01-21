@@ -20,6 +20,7 @@ from autogen_core.tools import StaticWorkbench
 from autogen_ext.agents.web_surfer import MultimodalWebSurfer
 from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
 from autogen_ext.models.anthropic import AnthropicChatCompletionClient
+from autogen_ext.models.ollama import OllamaChatCompletionClient
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_ext.models.openai._openai_client import AzureOpenAIChatCompletionClient
 from autogen_ext.tools.code_execution import PythonCodeExecutionTool
@@ -197,6 +198,7 @@ def create_default_gallery() -> GalleryConfig:
 
     # model clients require API keys to be set in the environment or passed in
     # as arguments. For testing purposes, we set them to "test" if not already set.
+    # NOTE: Ollama does not require API keys
     for key in ["OPENAI_API_KEY", "AZURE_OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
         if not os.environ.get(key):
             os.environ[key] = "test"
@@ -211,9 +213,22 @@ def create_default_gallery() -> GalleryConfig:
         category="conversation",
     )
 
-    # Create base model client
-    base_model = OpenAIChatCompletionClient(model="gpt-4o-mini")
-    builder.add_model(base_model.dump_component(), label="OpenAI GPT-4o Mini", description="OpenAI GPT-4o-mini")
+    # Create Ollama model client as the default (no API key required)
+    base_model = OllamaChatCompletionClient(model="qwen3:0.6b", host="http://localhost:11434")
+    builder.add_model(
+        base_model.dump_component(), label="Ollama Qwen3 (기본)", description="Ollama Qwen3 0.6B 모델 - 도구 호출 지원"
+    )
+
+    # Create additional Ollama model options
+    llama_model = OllamaChatCompletionClient(model="llama3.2:1b", host="http://localhost:11434")
+    builder.add_model(
+        llama_model.dump_component(), label="Ollama Llama3.2", description="Ollama Llama3.2 1B 모델 - 도구 호출 지원"
+    )
+
+    # Keep OpenAI as an alternative option
+    openai_model = OpenAIChatCompletionClient(model="gpt-4o-mini")
+    builder.add_model(openai_model.dump_component(), label="OpenAI GPT-4o Mini", description="OpenAI GPT-4o-mini")
+
     # Create Mistral vllm model
     mistral_vllm_model = OpenAIChatCompletionClient(
         model="TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
@@ -267,6 +282,7 @@ def create_default_gallery() -> GalleryConfig:
     except Exception as e:
         # Fallback to basic agent without tools if tool assignment fails
         import logging
+
         logging.warning(f"도구 할당 실패, 기본 에이전트 생성: {e}")
         calc_assistant = AssistantAgent(
             name="assistant_agent",
@@ -504,13 +520,13 @@ Read the above conversation. Then select the next role from {participants} to pl
         description="A tool that executes Python code in a local environment.",
     )
 
-    # Create deep research agent
-    model_client = OpenAIChatCompletionClient(model="gpt-4o", temperature=0.7)
+    # Create deep research agent - using Ollama for consistency
+    research_model_client = OllamaChatCompletionClient(model="llama3.2:1b", host="http://localhost:11434")
 
     research_assistant = AssistantAgent(
         name="research_assistant",
         description="A research assistant that performs web searches and analyzes information",
-        model_client=model_client,
+        model_client=research_model_client,
         tools=[tools.google_search_tool, tools.fetch_webpage_tool],
         system_message="""You are a research assistant focused on finding accurate information.
         Use the google_search tool to find relevant information.
@@ -522,7 +538,7 @@ Read the above conversation. Then select the next role from {participants} to pl
     verifier = AssistantAgent(
         name="verifier",
         description="A verification specialist who ensures research quality and completeness",
-        model_client=model_client,
+        model_client=research_model_client,
         system_message="""You are a research verification specialist.
         Your role is to:
         1. Verify that search queries are effective and suggest improvements if needed
@@ -540,7 +556,7 @@ Read the above conversation. Then select the next role from {participants} to pl
     summary_agent = AssistantAgent(
         name="summary_agent",
         description="A summary agent that provides a detailed markdown summary of the research as a report to the user.",
-        model_client=model_client,
+        model_client=research_model_client,
         system_message="""You are a summary agent. Your role is to provide a detailed markdown summary of the research as a report to the user. Your report should have a reasonable title that matches the research question and should summarize the key details in the results found in natural an actionable manner. The main results/answer should be in the first paragraph. Where reasonable, your report should have clear comparison tables that drive critical insights. Most importantly, you should have a reference section and cite the key sources (where available) for facts obtained INSIDE THE MAIN REPORT. Also, where appropriate, you may add images if available that illustrate concepts needed for the summary.
         Your report should end with the word "TERMINATE" to signal the end of the conversation.""",
     )
@@ -569,7 +585,7 @@ Read the above conversation. Then select the next role from {participants} to pl
 
     deep_research_team = SelectorGroupChat(
         participants=[research_assistant, verifier, summary_agent],
-        model_client=model_client,
+        model_client=research_model_client,
         termination_condition=termination,
         selector_prompt=selector_prompt,
         allow_repeated_speaker=True,
